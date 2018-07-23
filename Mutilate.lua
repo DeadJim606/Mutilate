@@ -2030,10 +2030,10 @@ function ns.saySpell(spell)
 	--]]
 	if options.SoundChannel ~= "No sound" then
 		-- Try to play localised version, is present.
-		local willPlay = PlaySoundFile("Interface\\AddOns\\Mutilate\\"..ns.n[spell]..".mp3", options.SoundChannel)
+		local willPlay = PlaySoundFile("Interface\\AddOns\\Mutilate\\media\\"..ns.n[spell]..".mp3", options.SoundChannel)
 		if not willPlay and ns.n[spell] ~= spell then
 			-- Failing that, play English (if it is different)
-			PlaySoundFile("Interface\\AddOns\\Mutilate\\"..spell..".mp3", options.SoundChannel)
+			PlaySoundFile("Interface\\AddOns\\Mutilate\\media\\"..spell..".mp3", options.SoundChannel)
 		end
 	end
 end
