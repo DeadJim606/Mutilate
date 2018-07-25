@@ -34,7 +34,7 @@ ns.e.Toxic_Blade = 20
 ns.e.Rupture = 25
 ns.e.Tricks_of_the_Trade = 0
 ns.e.Vanish = 0
-ns.e.Hemorrhage = 30
+ns.e.Blindside = 30
 ns.e.SymbolsOfDeath = 0
 ns.e.Shadowstrike = 40
 ns.e.Nightblade = 25
@@ -92,7 +92,7 @@ ns.n.Vanish              = ns.GetSpellNameById(1856)
 ns.n.Kick           	 = ns.GetSpellNameById(1766)
 ns.n.Shiv 				 = ns.GetSpellNameById(5938)
 ns.n.Cloak_of_Shadows 	 = ns.GetSpellNameById(31224)
-ns.n.Hemorrhage 		 = ns.GetSpellNameById(16511)
+ns.n.Blindside 		 	= ns.GetSpellNameById(111240)
 ns.n.Exsanguinate		 = ns.GetSpellNameById(200806) 
 ns.n.Symbols_of_Death	 = ns.GetSpellNameById(212283)
 ns.n.Shadow_Blades  	 = ns.GetSpellNameById(121471)
@@ -175,7 +175,7 @@ function ns.events.PLAYER_TALENT_UPDATE()
 	ns.CheckSpec()
 
 	if ns.spec == "Assassination" then
-		ns.hasBlindsideTalen = ns.HasTalent(1, 3) 
+		ns.hasBlindsideTalent = ns.HasTalent(1, 3) 
 		ns.hasSubterfugeTalent = ns.HasTalent(2, 2)
 		ns.hasDeeperStrategemTalent = ns.HasTalent(3, 2)
 		ns.hasExsanguinateTalent = ns.HasTalent(6, 3)
@@ -252,11 +252,11 @@ function ns.events.ADDON_LOADED(addon)
 	if not options.SuggestGarroteAsStealthOpener then options.SuggestGarroteAsStealthOpener = true end
 	if options.SuggestCloakOfShadows == nil then options.SuggestCloakOfShadows = true end
 	if not options.MinDebuffDurationForCofs then options.MinDebuffDurationForCofs = 10 end
-	if options.VoicePrompts == nil then options.VoicePrompts = true end
+	if options.VoicePrompts == nil then options.VoicePrompts = false end
 	if not options.ConsoleTrace == nil then options.Trace = false end
 	if not options.PretendInGroup == nil then options.PretendInGroup = false end
 	if not options.ExsanguinateTrigger then options.ExsanguinateTrigger = 30 end
-	if not options.SoundChannel then options.SoundChannel = "Master" end
+	if not options.SoundChannel then options.SoundChannel = "No sound" end
 
 
 	-- Create GUI
@@ -284,7 +284,7 @@ function ns.events.ADDON_LOADED(addon)
 	SlashCmdList["Mutilate"] = ns.Options -- Defined below.
 	SLASH_Mutilate1 = "/Mutilate"
 	SLASH_Mutilate2 = "/mut"
-	SLASH_Reset = "reset"
+	
 
 	-- Register for Function Events
 	ns.eventFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
@@ -302,9 +302,6 @@ function ns.events.ADDON_LOADED(addon)
 	
 end
 
-function SlashCmdList.SLASH_Mutilate2(msg, editBox)
-	print("Hello, World!")
-end
 -- Show or hide the spell textures.
 function ns.ShowSpellsIf(yes)
 	if ns.spellsShowing == yes then
@@ -502,6 +499,7 @@ function ns.getReadyTime(spellName, s)
 	if duration ~= nil and start + duration > s.now + 0.01 then 
 		return start + duration
 	end
+	
 	return 0
 end
 
@@ -585,7 +583,6 @@ function ns.GetState(now)
 
 	-- When our debuffs on the target will expire. If <= s.now, they are not up.
 	s.Garrote_Expiration = ns.getDebuffExpiration(ns.n.Garrote)
-	s.Hemorrhage_Expiration = ns.getDebuffExpiration(ns.n.Hemorrhage)
 	s.Rupture_Expiration = ns.getDebuffExpiration(ns.n.Rupture)
 	s.Envenom_Expiration = ns.getDebuffExpiration(ns.n.Envenom)
 	s.Nightblade_Expiration = ns.getDebuffExpiration(ns.n.Nightblade)
@@ -614,6 +611,7 @@ function ns.GetState(now)
 	elseif ns.spec == "Assassination" then
 		s.Kingsbane_ReadyTime = ns.getReadyTime(ns.n.Kingsbane, s)
 		s.ToxicBlade_ReadyTime = ns.getReadyTime(ns.n.Toxic_Blade, s)
+		s.Blindside_Expiration = ns.getBuffExpiration(ns.n.Blindside)
 	elseif ns.spec == "Subtlety" then
 		s.Goremaws_Bite_ReadyTime = ns.getReadyTime(ns.n.Goremaws_Bite, s)
 	end
@@ -626,6 +624,8 @@ function ns.GetState(now)
 	s.kickReadyTime = ns.getReadyTime(ns.n.Kick, s)
 	s.cofsReadyTime = ns.getReadyTime(ns.n.Cloak_of_Shadows, s)
 	s.garroteReadyTime = ns.getReadyTime(ns.n.Garrote, s)
+	
+	
 	s.exsanguinateReadyTime = ns.getReadyTime(ns.n.Exsanguinate, s)
 	s.shadowDanceReadyTime = ns.getReadyTime(ns.n.Shadow_Dance, s)
 	s.symbolsOfDeathReadyTime = ns.getReadyTime(ns.n.Symbols_of_Death, s)
@@ -785,18 +785,8 @@ function ns.GeSpellFromStateAssassination(s)
 		s.stealthReadyTime = s.now + 2
 
 	elseif ns.hasExsanguinateTalent
-		and s.exsanguinateReadyTime <= s.now
-		-- Use normal Rupture damage rate as our yardstick. Calculate the number of seconds
-		-- of Rupture damage equivalent we have on the target that Exsanguinate would accelerate
-		-- Count Garrote as 75% as effective as Rupture. Count the +25% damage for the
-		-- period of each that overlaps with Hemorrhage. Finally, trigger Exsanguinate if
-		-- the total is over ...(say)
-		and (max(0, min(s.Hemorrhage_Expiration, s.Rupture_Expiration) - s.now) * 1.25
-			+ max(0, s.Rupture_Expiration - s.Hemorrhage_Expiration - s.now)
-			+ max(0, min(s.Hemorrhage_Expiration, s.Garrote_Expiration) - s.now) * 1.25 * 0.75
-			+ max(0, (s.Garrote_Expiration - s.Hemorrhage_Expiration - s.now) * 0.75))
-		> options.ExsanguinateTrigger
-		then
+		and s.exsanguinateReadyTime <= s.now then
+		--todo: Now that Hemo is gone, double check this calc
 
 		spell = "Exsanguinate"
 		s.Rupture_Expiration = s.now + max(0, s.Rupture_Expiration - s.now) / 2
@@ -932,16 +922,15 @@ function ns.GeSpellFromStateAssassination(s)
 			end
 			ns.enterCombat(s)
 
-		elseif ns.hasBlindsideTalen
-			and s.energy >= ns.e.Hemorrhage * eCostMult
-			and s.Hemorrhage_Expiration < s.now + 20 / 4 -- Pandemic
+		elseif ns.hasBlindsideTalent 
+			and s.energy >= ns.e.Blindside * eCostMult
+			and s.Blindside_Expiration > 0
 			then
 
 			-- No hemorrhage bleed active and you need combo points.
-			spell = "Hemorrhage"
+			spell = "Blindside"
 			s.comboPoints = s.comboPoints + 1
-			s.energy = s.energy - ns.e.Hemorrhage * eCostMult
-			s.Hemorrhage_Expiration = ns.pandemicExpiration(s, s.Hemorrhage_Expiration, 20)
+			s.energy = s.energy - ns.e.Blindside * eCostMult
 			ns.enterCombat(s)
 
 		elseif s.energy >= ns.e.Mutilate * eCostMult then
@@ -1067,7 +1056,6 @@ function ns.GeOpenerSpellFromStateAssassination(s)
 		elseif ns.open.nextMove == "Garrote1" and ns.lastSpell ~= "Garrote" and ns.lastSpell ~= "" then
 			ns.open.active = 0
 			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(1)")
-			print(ns.lastSpell)
 			s = ns.GetState(GetTime())
 			ns.enterCombat(s)
 		elseif ns.open.nextMove == "Garrote1" and ns.lastSpell == "" then
@@ -1710,7 +1698,6 @@ function ns.GeSpellFromStateSubtlety(s)
 		spell = "Stealth"
 		s.playerIsStealthed = true
 		s.stealthReadyTime = s.now + 2
-		print("REcoStealth")
 
 
 	elseif s.Nightblade_Expiration < s.now + (6 + 2 * s.comboPoints) / 4 -- Pandemic
@@ -1728,7 +1715,6 @@ function ns.GeSpellFromStateSubtlety(s)
 	elseif s.inCombat and s.shadowBladesReadyTime <= s.now then
 
 		spell = "Shadow_Blades"
-		print("s.SBE", s.Shadow_Blades_Expiration)
 		s.shadowBladesReadyTime = s.now + 180		
 		ns.enterCombat(s)
 
@@ -2030,10 +2016,10 @@ function ns.saySpell(spell)
 	--]]
 	if options.SoundChannel ~= "No sound" then
 		-- Try to play localised version, is present.
-		local willPlay = PlaySoundFile("Interface\\AddOns\\Mutilate\\"..ns.n[spell]..".mp3", options.SoundChannel)
+		local willPlay = PlaySoundFile("Interface\\AddOns\\Mutilate\\media\\"..ns.n[spell]..".mp3", options.SoundChannel)
 		if not willPlay and ns.n[spell] ~= spell then
 			-- Failing that, play English (if it is different)
-			PlaySoundFile("Interface\\AddOns\\Mutilate\\"..spell..".mp3", options.SoundChannel)
+			PlaySoundFile("Interface\\AddOns\\Mutilate\\media\\"..spell..".mp3", options.SoundChannel)
 		end
 	end
 end

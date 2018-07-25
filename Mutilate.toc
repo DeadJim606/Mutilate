@@ -5,34 +5,4 @@
 ## SavedVariables: Mutilatedb
 ## Notes: Action recommendation for all rogue specs.
 
-Ambush.mp3
-Backstab.mp3
-Between_the_Eyes.mp3
-Crimson_Vial.mp3
-Dispatch.mp3
-Envenom.mp3
-Eviscerate.mp3
-Exsanguinate.mp3
-Garrote.mp3
-Ghostly_Strike.mp3
-Gloomblade.mp3
-Goremaws_Bite.mp3
-Hemorrhage.mp3
-Kick.mp3
-Kingsbane.mp3
-Marked_for_Death.mp3
 Mutilate.lua
-Mutilate.mp3
-Nightblade.mp3
-Pistol_Shot.mp3
-Recuperate.mp3
-Roll_the_Bones.mp3
-Run_Through.mp3
-Rupture.mp3
-Saber_Slash.mp3
-Shadow_Dance.mp3
-Shadowstrike.mp3
-Shiv.mp3
-Slice_and_Dice.mp3
-Stealth.mp3
-Symbols_of_Death.mp3
