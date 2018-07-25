@@ -1,5 +1,5 @@
 ## Title: Mutilate
-## Version: 3.0.1 (Beta)
+## Version: 3.0.3
 ## Author: deadjim, thudel
 ## Interface: 70100
 ## SavedVariables: Mutilatedb
