@@ -32,7 +32,7 @@ ns.e.Mutilate = 50
 ns.e.Envenom  = 35
 ns.e.Toxic_Blade = 20
 ns.e.Rupture = 25
-ns.e.Tricks_of_the_Trade = 0
+ns.e.Feint = 0
 ns.e.Vanish = 0
 ns.e.Blindside = 30
 ns.e.SymbolsOfDeath = 0
@@ -84,10 +84,11 @@ ns.n = {}
 
 ns.n.Vendetta            = ns.GetSpellNameById(79140)
 ns.n.Garrote             = ns.GetSpellNameById(703)
+ns.n.Evasion 			 = ns.GetSpellNameByID(5277)
 ns.n.Mutilate            = ns.GetSpellNameById(1329)
 ns.n.Envenom             = ns.GetSpellNameById(32645)
 ns.n.Rupture             = ns.GetSpellNameById(1943)
-ns.n.Tricks_of_the_Trade = ns.GetSpellNameById(57934)
+ns.n.Feint				 = ns.GetSpellNameById(1966)
 ns.n.Vanish              = ns.GetSpellNameById(1856)
 ns.n.Kick           	 = ns.GetSpellNameById(1766)
 ns.n.Shiv 				 = ns.GetSpellNameById(5938)
@@ -110,8 +111,10 @@ ns.n.Sinister_Strike		 = ns.GetSpellNameById(193315)
 ns.n.Opportunity		 = ns.GetSpellNameById(195627)
 ns.n.Dispatch		 = ns.GetSpellNameById(2098)
 ns.n.Roll_the_Bones		 = ns.GetSpellNameById(193316)
+ns.n.Loaded_Dice 		 = ns.GetSpellNameByID(256170)
 ns.n.True_Bearing		 = ns.GetSpellNameById(193359)
 ns.n.Adrenaline_Rush	 = ns.GetSpellNameById(13750)
+ns.n.Blade_Flurry		 = ns.GetSpellNameById(13877)
 ns.n.Pistol_Shot	     = ns.GetSpellNameById(185763)
 ns.n.Ambush	             = ns.GetSpellNameById(8676)
 ns.n.Ruthless_Precision  = ns.GetSpellNameById(193357)
@@ -598,6 +601,7 @@ function ns.GetState(now)
 		s.Opportunity_Expiration = ns.getBuffExpiration(ns.n.Opportunity)
 		s.Slice_and_Dice_Expiration = ns.getBuffExpiration(ns.n.Slice_and_Dice)
 		s.Adrenaline_Rush_Expiration = ns.getBuffExpiration(ns.n.Adrenaline_Rush)
+		s.Loaded_Dice_Expiration = ns.getBuffExpiration(ns.n.Loaded_Dice)
 
 		s.True_Bearing_Expiration = ns.getBuffExpiration(ns.n.True_Bearing)
 		s.Ruthless_Precision_Expiration = ns.getBuffExpiration(ns.n.Ruthless_Precision)
@@ -608,19 +612,22 @@ function ns.GetState(now)
 		s.Curse_of_the_Dreadblades_Expiration = ns.getMyDebuffExpiration(ns.n.Curse_of_the_Dreadblades)
 		s.Curse_of_the_Dreadblades_ReadyTime = ns.getReadyTime(ns.n.Curse_of_the_Dreadblades, s)
 		s.Between_the_Eyes_ReadyTime = ns.getReadyTime(ns.n.Between_the_Eyes, s)
+		s.bladeFlurryReadyTime = ns.getReadyTime(ns.n.Blade_Flurry, s)
 	elseif ns.spec == "Assassination" then
 		s.Kingsbane_ReadyTime = ns.getReadyTime(ns.n.Kingsbane, s)
 		s.ToxicBlade_ReadyTime = ns.getReadyTime(ns.n.Toxic_Blade, s)
 		s.Blindside_Expiration = ns.getBuffExpiration(ns.n.Blindside)
 		s.Vendetta_Expiration = ns.getBuffExpiration(ns.n.Vendetta)
+		s.evasionReadyTime = ns.getReadyTime(ns.n.Evasion, s)
 	elseif ns.spec == "Subtlety" then
 		s.Goremaws_Bite_ReadyTime = ns.getReadyTime(ns.n.Goremaws_Bite, s)
+		s.evasionReadyTime = ns.getReadyTime(ns.n.Evasion, s)
 	end
 
 	-- Cooldowns. Any value <= s.now indicates they are cooled down and ready to cast (given
 	-- whatever other constraints apply).
 	s.vendettaReadyTime = ns.getReadyTime(ns.n.Vendetta, s)
-	s.tricksOfTheTradeReadyTime = ns.getReadyTime(ns.n.Tricks_of_the_Trade, s)
+	s.Feint = ns.getReadyTime(ns.n.Feint, s)
 	s.vanishReadyTime = ns.getReadyTime(ns.n.Vanish, s)
 	s.kickReadyTime = ns.getReadyTime(ns.n.Kick, s)
 	s.cofsReadyTime = ns.getReadyTime(ns.n.Cloak_of_Shadows, s)
@@ -635,6 +642,7 @@ function ns.GetState(now)
 	s.crimsonVialReadyTime = ns.getReadyTime(ns.n.Crimson_Vial, s)
 	s.markedForDeathReadyTime = ns.getReadyTime(ns.n.Marked_for_Death, s)
 	s.adrenalineRushReadyTime = ns.getReadyTime(ns.n.Adrenaline_Rush, s)
+	s.bladeFlurryReadyTime = ns.getReadyTime(ns.b.Blade_Flurry, s)
 	s.ambushReadyTime = ns.getReadyTime(ns.n.Ambush, s)
 	
 --	s.trinket1ReadyTime = ns.getItemReadyTime(ns.id.Trinket_1, s)
@@ -927,15 +935,14 @@ function ns.GeSpellFromStateAssassination(s)
 
 
 	--    A          B                 C      D
-	--1 [Tricks] [Vanish]   |  | [Next]  [CofS]
-	--2 [Kick  ] [Vendetta] |  | [MForD]?###
+	--1 [Feint] [Vanish]   |  | [Next]  [CofS]
+	--2 [Kick  ] [Evasion] |  | [MForD]?###
 	
 
 	local b2 = nil
 
-	if s.vendettaReadyTime <= s.now and
-		 s.Rupture_Expiration > s.now and s.energy <= 40 then
-		b2 = ns.n.Vendetta
+	if s.evasionReadyTime <= s.now 
+		b2 = ns.n.Evasion
 	end
 
 	local c2 = nil
@@ -946,7 +953,7 @@ function ns.GeSpellFromStateAssassination(s)
 
 	end
 
-	local tricksOfTheTradeOk = s.tricksOfTheTradeReadyTime <= s.now and s.isInGroup
+	local feintOk = s.feintReadyTime <= s.now
 	--local trinket1OK = s.trinket1ReadyTime <= s.now
 
 
@@ -971,7 +978,7 @@ function ns.GeSpellFromStateAssassination(s)
 	s.energy = min(ns.maxEnergy, s.energy + combatEnergyRegenPerSec * (s.now - oldNow))
 
 	--return spell, vanishOk, b2, tricksOfTheTradeOk, trinket1OK, kickOk, s.interruptibleName, d2, rText, c2
-	return spell, vanishOk, b2, tricksOfTheTradeOk, kickOk, s.interruptibleName, d2, rText, c2
+	return spell, vanishOk, b2, feintOk, kickOk, s.interruptibleName, d2, rText, c2
 end
 
 function ns.GeOpenerSpellFromStateAssassination(s)
@@ -1147,16 +1154,16 @@ function ns.GeOpenerSpellFromStateAssassination(s)
 	end
 
 	--    A          B                 C      D
-	--1 [Tricks] [Vanish]   |  | [Next]  [CofS]
-	--2 [Kick  ] [Vendetta] |  | [MForD]?###
+	--1 [Feint] [Vanish]   |  | [Next]  [CofS]
+	--2 [Kick  ] [Evasion] |  | [MForD]?###
 	
 
 	local b2 = nil
 
-	if s.vendettaReadyTime <= s.now and
-		 s.Rupture_Expiration > s.now and s.energy <= 40 then
-		b2 = ns.n.Vendetta
+	if s.evasionReadyTime <= s.now 
+		b2 = ns.n.Evasion
 	end
+
 
 	local c2 = nil
 	if ns.hasMarkedForDeathTalent and s.markedForDeathReadyTime <= s.now then
@@ -1165,7 +1172,7 @@ function ns.GeOpenerSpellFromStateAssassination(s)
 --		c2 = ns.n.Trinket_1
 	end
 
-	local tricksOfTheTradeOk = s.tricksOfTheTradeReadyTime <= s.now and s.isInGroup
+	local feintOk = s.feintReadyTime <= s.now
 	--local trinket1OK = s.trinket1ReadyTime <= s.now
 
 
@@ -1192,14 +1199,14 @@ function ns.GeOpenerSpellFromStateAssassination(s)
 
 	s.energy = min(ns.maxEnergy, s.energy + combatEnergyRegenPerSec * (s.now - oldNow))
 
-	return spell, vanishOk, b2, tricksOfTheTradeOk,  kickOk, s.interruptibleName, d2, rText, c2
+	return spell, vanishOk, b2, feintOk,  kickOk, s.interruptibleName, d2, rText, c2
 end
 
 function ns.GeSpellFromStateOutlaw(s)
 	local spell = nil;
 	local oldNow = s.now
 
-	local maxComboPtsToSpend = 5	
+	local maxComboPtsToSpend = 4	
 	local maxCombos = 5
 	local markedForDeathGrant = 5
 	if ns.hasDeeperStrategemTalent then
@@ -1209,8 +1216,6 @@ function ns.GeSpellFromStateOutlaw(s)
 	elseif (s.Opportunity_Expiration > s.now + 1.5 and ns.hasQuickDrawTalent) or s.playerIsStealthed then
 		maxComboPtsToSpend = 4 -- We'll generate 2 combos with the comming pistol shot or Ambush.
 	end
-
-	local eCostMult = 1 -- ### Remvoe if never use in Outlaw
 
 	local rollTheBonesBuffGoodness = 0
 	if s.True_Bearing_Expiration > s.now then
@@ -1242,40 +1247,52 @@ function ns.GeSpellFromStateOutlaw(s)
 		-- waiting for global cooldown
 		s.now = s.globalCoolDownExpiration
 
-	elseif s.energy >= ns.e.Crimson_Vial * eCostMult
+	elseif s.energy >= ns.e.Crimson_Vial 
 		and s.crimsonVialReadyTime <= s.now
 		and s.playerHealthFraction < options.PlayerHealthThreshold / 100
 		then
 
 		spell = "Crimson_Vial"
 		s.crimsonVialReadyTime = s.now + 30
-		s.energy = s.energy - ns.e.Crimson_Vial * eCostMult
+		s.energy = s.energy - ns.e.Crimson_Vial
 
---	elseif not s.playerIsStealthed and not s.inCombat and s.stealthReadyTime < s.now then
---
---		-- Always open from stealth
---		spell = "Stealth"
---		s.playerIsStealthed = true
---		s.stealthReadyTime = s.now + 2
 
-	elseif s.comboPoints >= maxComboPtsToSpend -1 and rollTheBonesBuffGoodness < 2
+			--Roll if you have no RTB buffs
+	elseif (s.comboPoints >= maxComboPtsToSpend and rollTheBonesBuffGoodness = 0) or
+			--Roll if you have 1 RTB buff **and** Loaded Dice
+		(s.comboPoints >= maxComboPtsToSpend and rollTheBonesBuffGoodness = 1 and s.Loaded_Dice_Expiration > 0) or
+			--Roll if you have 1 or 2 RTB Buffs, but none are Ruthless or Grand Melee
+		(s.comboPoints >= maxComboPtsToSpend  and 
+			(s.Ruthless_Precision_Expiration = 0 and s.Grand_Melee_Expiration = 0)) 
 		then
 			spell = "Roll_the_Bones"
 			-- We don't know what buff will turn up, so that makes it hard to predict the future.
 			-- Just assume it is Broadside for the sake of prediciton.
 			s.Broadsides_Expiration = s.now + (ns.SpendCombos(s) + 1) * 6
-	--elseif s.adrenalineRushReadyTime <= s.now then
-	--		spell = "Adrenaline_Rush"
+	
+	elseif ns.hasKillingSpreeTalent
+		and s.KillingSpreeReadyTime <= 0
+		and s.Adrenaline_Rush_Expiration <= 0 then
+			spell = "Killing_Spree"
+			s.KillingSpreeReadyTime = s.now + 120
+
+	elseif ns.hasBladeRushTalent
+		and s.BladeRushReadyTime <= 0 then
+			spell = "Blade_Rush"
+			s.BladeRushReadyTime = s.now + 45
+
+	elseif s.adrenalineRushReadyTime <= 0 then
+		spell = "Adrenaline_Rush"
+		s.adrenalineRushReadyTime = s.now + 180
 
 	elseif ns.hasMarkedForDeathTalent
 		and s.comboPoints <= 1
-		and maxCombos - s.comboPoints >= markedForDeathGrant
 		and s.markedForDeathReadyTime <= s.now
 		then
 
-		spell = "Marked_for_Death"
-		s.markedForDeathReadyTime = s.now + 60
-		s.comboPoints = min(maxCombos, s.comboPoints + markedForDeathGrant)
+			spell = "Marked_for_Death"
+			s.markedForDeathReadyTime = s.now + 60
+			s.comboPoints = min(maxCombos, s.comboPoints + markedForDeathGrant)
 
 	elseif s.comboPoints >= maxComboPtsToSpend
 		and s.Ruthless_Precision_Expiration > s.now
@@ -1290,11 +1307,11 @@ function ns.GeSpellFromStateOutlaw(s)
 		ns.SpendCombos(s)
 
 	elseif s.comboPoints >= maxComboPtsToSpend
-		and s.energy >= ns.e.Dispatch * eCostMult
+		and s.energy >= ns.e.Dispatch
 		then
 
 		spell = "Dispatch"
-		s.energy = s.energy - ns.e.Dispatch * eCostMult
+		s.energy = s.energy - ns.e.Dispatch
 		ns.enterCombat(s)
 		ns.SpendCombos(s)
 
@@ -1302,9 +1319,6 @@ function ns.GeSpellFromStateOutlaw(s)
 		and s.comboPoints < maxComboPtsToSpend -1 
 		and s.energy > ns.e.Pistol_Shot	--todo: restrict if energy will cap during expiration
 		then
-
-		-- Special case of low combo points plus Opportuniy proc triggering pistol
-		-- shot so it comes in before a Dreadblades sinister slash.
 		spell = "Pistol_Shot"
 		s.comboPoints = s.comboPoints + 1
 		if ns.hasQuickDrawTalent then
@@ -1313,136 +1327,6 @@ function ns.GeSpellFromStateOutlaw(s)
 		s.energy = s.energy - ns.e.Pistol_Shot
 		s.Opportunity_Expiration = s.now
 		ns.enterCombat(s)
-
-	--elseif s.Curse_of_the_Dreadblades_Expiration > s.now
-	--	and s.Opportunity_Expiration > s.now
-	--	and s.comboPoints < maxComboPtsToSpend
-	--	and s.energy > ns.e.Pistol_Shot
-	--	then
-
-	--	-- Special case of low combo points plus Opportuniy proc triggering pistol
-	--	-- shot so it comes in before a Dreadblades sinister slash.
-	--	spell = "Pistol_Shot"
-	--	s.comboPoints = s.comboPoints + 1
-	--	if ns.hasQuickDrawTalent then
-	--		s.comboPoints = s.comboPoints + 1
-	--	end
-	--	s.energy = s.energy - ns.e.Pistol_Shot
-	--	s.Opportunity_Expiration = s.now
-	--	ns.enterCombat(s)
-
-	--elseif s.Curse_of_the_Dreadblades_Expiration > s.now
-	--	and s.comboPoints < maxComboPtsToSpend
-	--	and s.energy >= ns.e.Sinister_Strike
-	--	then
-
-	--	-- Special case high priority Sinister Slash if Dreadblades is active.
-	--	spell = "Sinister_Strike"
-	--	s.energy = s.energy - ns.e.Sinister_Strike
-	--	s.comboPoints = maxCombos
-	--	ns.enterCombat(s)
-
-	--elseif not ns.hasSliceAndDiceTalent
-	--	and s.comboPoints >= maxComboPtsToSpend
-	--  and ((not s.isInGroup and rollTheBonesBuffGoodness < 1)
-	--    	-- Shark Infested Waters is good. True Bearing is good if you are waiting for
-	--    	-- AR to come off cooldown by, say 10 s or more. Else any two are good.
-	--    	or (rollTheBonesBuffGoodness < 2
-	--    		and s.Ruthless_Precision_Expiration <= s.now
-	--    		and (s.True_Bearing_Expiration <= s.now or s.adrenalineRushReadyTime <= s.now + 10)))
-	--	then
-
-	--	spell = "Roll_the_Bones"
-	--	-- We don't know what buff will turn up, so that makes it hard to predict the future.
-	--	-- Just assume it is Broadside for the sake of prediciton.
-	--	s.Broadsides_Expiration = s.now + (ns.SpendCombos(s) + 1) * 6
-
-	--elseif ns.hasMarkedForDeathTalent
-	--	and s.comboPoints <= 1
-	--	and maxCombos - s.comboPoints >= markedForDeathGrant
-	--	and s.markedForDeathReadyTime <= s.now
-	--	then
-
-	--	spell = "Marked_for_Death"
-	--	s.markedForDeathReadyTime = s.now + 60
-	--	s.comboPoints = min(maxCombos, s.comboPoints + markedForDeathGrant)
-
-	--elseif s.playerIsStealthed and s.energy > ns.e.Ambush * eCostMult then
-
-	--	spell = "Ambush"
-	--	s.energy = s.energy - ns.e.Ambush * eCostMult
-	--	s.comboPoints = max(maxCombos, s.comboPoints + 2)
-	--	ns.enterCombat(s)
-
-	--elseif s.comboPoints >= maxComboPtsToSpend
-	--	and s.Ruthless_Precision_Expiration > s.now
-	--	and s.energy > ns.e.Between_the_Eyes
-	--	and s.Between_the_Eyes_ReadyTime <= s.now
-	--	then
-
-	--	spell = "Between_the_Eyes"
-	--	s.energy = s.energy - ns.e.Between_the_Eyes
-	--	s.Between_the_Eyes_ReadyTime = s.now + 20
-	--	ns.enterCombat(s)
-	--	ns.SpendCombos(s)
-
-	--elseif ns.hasSliceAndDiceTalent
-	--	and s.comboPoints >= 1
-	--	and s.Slice_and_Dice_Expiration <= (s.comboPoints + 1) * 6 / 4 -- Pandemic
-	--	and s.energy > ns.e.Slice_and_Dice
-	--	then
-
-	--	spell = "Slice_and_Dice"
-	--	s.energy = s.energy - ns.e.Slice_and_Dice
-	--	local comboSpend = ns.SpendCombos(s)
-	--	s.Slice_and_Dice_Expiration = ns.pandemicExpiration(s, s.Slice_and_Dice_Expiration, (s.comboPoints + 1) * 6)
-	--	ns.enterCombat(s)
-
-	--elseif s.comboPoints >= maxComboPtsToSpend
-	--	and s.energy >= ns.e.Dispatch * eCostMult
-	--	then
-
-	--	spell = "Dispatch"
-	--	s.energy = s.energy - ns.e.Dispatch * eCostMult
-	--	ns.enterCombat(s)
-	--	ns.SpendCombos(s)
-
-	--elseif s.comboPoints < maxComboPtsToSpend
-	--	and s.Curse_of_the_Dreadblades_Expiration <= s.now
-	--	then
-
-		-- Combo point building. But only if Dreadblades is not active. If it is, we should
-		-- only be using the Sinister Slash and Pistol Shot cases earlier.
-	--	if s.playerIsStealthed and s.energy > ns.e.Ambush * eCostMult then
-
-	--		spell = "Ambush"
-	--		s.energy = s.energy - ns.e.Ambush * eCostMult
-	--		s.comboPoints = s.comboPoints + 2
-	--		ns.enterCombat(s)
-
-	--	elseif s.Opportunity_Expiration > s.now
-	--		and s.energy > ns.e.Pistol_Shot
-	--		then
-
-	--		spell = "Pistol_Shot"
-	--		s.comboPoints = s.comboPoints + 1
-	--		if ns.hasQuickDrawTalent then
-	--			s.comboPoints = s.comboPoints + 1
-	--		end
-	--		s.energy = s.energy - ns.e.Pistol_Shot
-	--		s.Opportunity_Expiration = s.now
-	--		ns.enterCombat(s)
-
-	--	elseif ns.hasGhostlyStrikeTalent
-	--		and s.energy > ns.e.Ghostly_Strike
-	--		and s.Ghostly_Strike_Expiration < s.now + 15 / 4 -- Pandemic
-	--		then
-
-	--		spell = "Ghostly_Strike"
-	--		s.comboPoints = s.comboPoints + 1
-	--		s.Ghostly_Strike_Expiration = ns.pandemicExpiration(s, s.Ghostly_Strike_Expiration, 15)
-	--		s.energy = s.energy - ns.e.Ghostly_Strike
-	--		ns.enterCombat(s)
 		
 	elseif s.energy >= ns.e.Sinister_Strike then
 		spell = "Sinister_Strike"
@@ -1454,16 +1338,12 @@ function ns.GeSpellFromStateOutlaw(s)
 	
 
 	--    A          B                     C      D
-	--1 [Tricks] [Vanish]          |  | [Next]   [CofS]
-	--2 [Kick  ] [Adrenaline Rush] |  | [Dreadblades]
+	--1 [Feint] [Vanish]          |  | [Next]   [CofS]
+	--2 [Kick  ] [Blade Flurry] |  | [Dreadblades]
 
 	local b2 = nil
-	if s.adrenalineRushReadyTime <= s.now
-		and ((rollTheBonesBuffGoodness >= 2 and rollTheBonesExpiration >= s.now + 30)  -- Say
-		or ns.hasSliceAndDiceTalent)
-		then
-
-		b2 = ns.n.Adrenaline_Rush
+	if s.bladeFlurryReadyTime <= s.now
+		b2 = ns.n.Blade_Flurry
 	end
 
 	local c2 = nil
@@ -1471,7 +1351,7 @@ function ns.GeSpellFromStateOutlaw(s)
 		c2 = ns.n.Curse_of_the_Dreadblades
 	end
 
-	local tricksOfTheTradeOk = s.tricksOfTheTradeReadyTime <= s.now and s.isInGroup
+	local feintOk = s.feintReadyTime <= s.now and s.isInGroup
 	--local trinket1OK = s.trinket1ReadyTime <= s.now
 
 	local kickOk = s.kickReadyTime <= s.now and s.interruptibleName ~= nil
@@ -1491,7 +1371,7 @@ function ns.GeSpellFromStateOutlaw(s)
 	s.now = max(s.now, oldNow + 0.1) -- Always move forward in time at least a little
 	s.energy = min(ns.maxEnergy, s.energy + s.combatEnergyRegenPerSec * (s.now - oldNow))
 
-	return spell, vanishOk, b2, tricksOfTheTradeOk, kickOk, s.interruptibleName, d2, rText, c2
+	return spell, vanishOk, b2, feintOk, kickOk, s.interruptibleName, d2, rText, c2
 end
 
 function ns.GeSpellFromStateSubtlety(s)
@@ -1797,15 +1677,15 @@ function ns.GeSpellFromStateSubtlety(s)
 	local vanishOk = s.vanishReadyTime <= s.now and s.isInGroup
 
 	--    A          B                 C      D
-	--1 [Tricks] [Vanish]        |  | [Next] [CofS]
-	--2 [Kick  ] [Shadow Blades] |  |
+	--1 [Feint] [Vanish]        |  | [Next] [CofS]
+	--2 [Kick  ] [Evasion] |  |
 
 	local b2 = nil
-	if s.shadowBladesReadyTime <= s.now then
-		b2 = ns.n.Shadow_Blades
+	if s.evasionReadyTime <= s.now then
+		b2 = ns.n.Evasion
 	end
 
-	local tricksOfTheTradeOk = s.tricksOfTheTradeReadyTime <= s.now and s.isInGroup
+	local feintOk = s.feintReadyTime <= s.now and s.isInGroup
 	--local trinket1OK = s.trinket1ReadyTime <= s.now
 
 	local kickOk = s.kickReadyTime <= s.now and s.interruptibleName ~= nil
@@ -1825,7 +1705,7 @@ function ns.GeSpellFromStateSubtlety(s)
 	s.now = max(s.now, oldNow + 0.1) -- Always move forward in time at least a little
 	s.energy = min(ns.maxEnergy, s.energy + s.combatEnergyRegenPerSec * (s.now - oldNow))
 
-	return spell, vanishOk, b2, tricksOfTheTradeOk, kickOk, s.interruptibleName, d2, rText, nil
+	return spell, vanishOk, b2, feintOk, kickOk, s.interruptibleName, d2, rText, nil
 end
 
 function ns.enterCombat(s)
@@ -1927,12 +1807,12 @@ function ns.DecideSpells()
 
 	local globalCoolDownExpiration = s.globalCoolDownExpiration
 	--local spell, vanishOk, b2, tricksOfTheTradeOk, trinket1OK, kickOk, interruptibleName, d2, rText, c2 = ns.GetSpellFromState(s, "=")
-	local spell, vanishOk, b2, tricksOfTheTradeOk, kickOk, interruptibleName, d2, rText, c2 = ns.GetSpellFromState(s, "=")
+	local spell, vanishOk, b2, feintOk, kickOk, interruptibleName, d2, rText, c2 = ns.GetSpellFromState(s, "=")
 	
 	--local trinket1OK = s.trinket1ReadyTime <= s.now
 	
-	if tricksOfTheTradeOk then
-		ns.textureA1:SetTexture(GetSpellTexture(ns.n.Tricks_of_the_Trade))
+	if feintOk then
+		ns.textureA1:SetTexture(GetSpellTexture(ns.n.Feint))
 	else
 		ns.textureA1:SetTexture(nil)
 	end
