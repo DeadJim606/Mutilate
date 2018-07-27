@@ -612,6 +612,7 @@ function ns.GetState(now)
 		s.Kingsbane_ReadyTime = ns.getReadyTime(ns.n.Kingsbane, s)
 		s.ToxicBlade_ReadyTime = ns.getReadyTime(ns.n.Toxic_Blade, s)
 		s.Blindside_Expiration = ns.getBuffExpiration(ns.n.Blindside)
+		s.Vendetta_Expiration = ns.getBuffExpiration(ns.n.Vendetta)
 	elseif ns.spec == "Subtlety" then
 		s.Goremaws_Bite_ReadyTime = ns.getReadyTime(ns.n.Goremaws_Bite, s)
 	end
@@ -729,53 +730,34 @@ function ns.GeSpellFromStateAssassination(s)
 	
 		
 	if ns.hasDeeperStrategemTalent then
-		maxComboPtsToSpend = 6
+		maxComboPtsToSpend = 5
 		maxCombos = 6
-		markedForDeathGrant = 5
-	end
-
-	local eCostMult = 1
-	if s.playerIsStealthed and ns.hasShadowFocusTalent then
-		
-		eCostMult = 0.25
+		markedForDeathGrant = 6
 	end
 
 	local stealthy = s.playerIsStealthed or s.Subterfuge_Expiration > s.now
 		
-	local nBleeds = 0
-	if s.Rupture_Expiration > s.now + 1 then
-		nBleeds = nBleeds + 1
-	end
-	if s.Garrote_Expiration > s.now + 1 then
-		nBleeds = nBleeds + 1
-	end
-
-
-
+	
 	local vanishOk = s.vanishReadyTime <= s.now and s.isInGroup
 	
 	if s.globalCoolDownExpiration > s.now then  -- Global Cooldown - can't do anything
 		s.now = s.globalCoolDownExpiration
 
-	elseif s.Rupture_Expiration < s.now and s.comboPoints > 0 then   -- If Rupture has fallen off and we have at least 1 combo point
-		spell = "Rupture"
-		local comboSpend = ns.SpendCombos(s)
-		s.Rupture_Expiration = ns.pandemicExpiration(s, s.Rupture_Expiration, (comboSpend + 1) * 4)
-		s.energy = s.energy - ns.e.Rupture * eCostMult
+	elseif s.comboPoints >= maxComboPtsToSpend and vanishOk and s.Vendetta_Expiration > 0 then
+		spell = "Vanish"
+		s.vanishReadyTime = s.now + 120
 
-	elseif s.energy >= ns.e.Crimson_Vial * eCostMult
+	elseif s.energy >= ns.e.Crimson_Vial 
 		and s.crimsonVialReadyTime <= s.now
 		and s.playerHealthFraction < options.PlayerHealthThreshold / 100
 		then
 
 		spell = "Crimson_Vial"
 		s.crimsonVialReadyTime = s.now + 30
-		s.energy = s.energy - ns.e.Crimson_Vial * eCostMult
+		s.energy = s.energy - ns.e.Crimson_Vial
 
 -- 10/31 added a 2 second check on Rupture expiring
-	elseif s.comboPoints >= maxComboPtsToSpend and vanishOk and s.Rupture_Expiration <= s.now + 2  then
-		spell = "Vanish"
-		s.vanishReadyTime = s.now + 120
+	
 
 	elseif not s.playerIsStealthed and not s.inCombat and s.stealthReadyTime < s.now then
 
@@ -801,7 +783,7 @@ function ns.GeSpellFromStateAssassination(s)
 			-- No garrote bleed active and need combo points.
 			spell = "Garrote"
 			s.comboPoints = max(maxCombos, s.comboPoints + 1)
-			s.energy = s.energy - ns.e.Garrote * eCostMult
+			s.energy = s.energy - ns.e.Garrote 
 			s.Garrote_Expiration =  ns.pandemicExpiration(s, s.Garrote_Expiration, 18)
 			ns.SpendCombos(s)
 			if not stealthy or not ns.hasSubterfugeTalent then
@@ -812,7 +794,7 @@ function ns.GeSpellFromStateAssassination(s)
 	elseif s.playerIsStealthed and not s.inCombat then
 		spell = "Garrote"
 		--s.comboPoints = max(maxCombos, s.comboPoints + 1)
-		s.energy = s.energy - ns.e.Garrote * eCostMult
+		s.energy = s.energy - ns.e.Garrote 
 		--s.Garrote_Expiration =  ns.pandemicExpiration(s, s.Garrote_Expiration, 18)
 		--ns.SpendCombos(s)
 		if not stealthy or not ns.hasSubterfugeTalent then
@@ -826,22 +808,19 @@ function ns.GeSpellFromStateAssassination(s)
 
 -- 10/31 moved Kingsbane up, pre-toxic
 	elseif ns.knowsKingsbane
-		and s.energy >= ns.e.Kingsbane * eCostMult
+		and s.energy >= ns.e.Kingsbane
 		and s.Kingsbane_ReadyTime <= s.now
 		then
 
 		spell = "Kingsbane"
-		s.energy = s.energy - ns.e.Kingsbane * eCostMult
+		s.energy = s.energy - ns.e.Kingsbane 
 		s.Kingsbane_ReadyTime = s.now + 45
 		s.comboPoints = min(maxCombos, s.comboPoints + 1)
 		ns.enterCombat(s)
 
-	elseif  s.inCombat and s.ToxicBlade_ReadyTime <= s.now and s.Kingsbane_ReadyTime > s.now + 4 
-		and (s.vendettaReadyTime > s.now + 4 or s.vendettaReadyTime <= s.now) then
-		--kingsbane > 4 seconds... do not delay
-		-- Vendetta falling off within 4, wait
+	elseif  s.inCombat and s.ToxicBlade_ReadyTime <= s.now and s.comboPoints < maxCombos then
 		spell = "Toxic_Blade"
-		s.energy = s.energy - ns.e.Toxic_Blade * eCostMult
+		s.energy = s.energy - ns.e.Toxic_Blade 
 		s.ToxicBlade_ReadyTime = s.now + 25
 		if ns.open.active == 0 then
 			ns.leftText:SetText("")
@@ -862,13 +841,13 @@ function ns.GeSpellFromStateAssassination(s)
 		s.comboPoints = min(maxCombos, s.comboPoints + markedForDeathGrant)
 	
 -- 10/31 added back in
-	elseif s.vendettaReadyTime <= s.now and s.energy <= 30 then
+	elseif s.vendettaReadyTime <= s.now and s.energy <= 80 then
 		spell = "Vendetta"
 		ns.enterCombat(s)
 
-	elseif s.energy >= ns.e.Rupture * eCostMult
-		and s.comboPoints >= 1
-		and s.Rupture_Expiration < s.now + (s.comboPoints + 1)
+	elseif s.energy >= ns.e.Rupture 
+		and ((s.comboPoints >= 4	and s.Rupture_Expiration < s.now + 7) 
+		or (s.comboPoints > 0 and s.Rupture_Expiration < s.now))
 		then
 
 		-- Rupture expiration is subject to Pandemic (i.e. new buff time adds to existing if close to
@@ -878,26 +857,26 @@ function ns.GeSpellFromStateAssassination(s)
 		spell = "Rupture"
 		local comboSpend = ns.SpendCombos(s)
 		s.Rupture_Expiration = ns.pandemicExpiration(s, s.Rupture_Expiration, (comboSpend + 1) * 4)
-		s.energy = s.energy - ns.e.Rupture * eCostMult
+		s.energy = s.energy - ns.e.Rupture 
 		ns.enterCombat(s)
 
-	elseif s.energy >= ns.e.Envenom * eCostMult
+	elseif s.energy >= ns.e.Envenom
 		and s.energy >= ns.maxEnergy * 0.95
 		and s.comboPoints > 0 then
 
 		-- If we are at max energy and we have even one combo point, evenom, because its better than
 		-- wasting energy.
 		spell = "Envenom"
-		s.energy = s.energy - ns.e.Envenom * eCostMult
+		s.energy = s.energy - ns.e.Envenom 
 		s.Envenom_Expiration = s.now + s.comboPoints + 1
 		ns.SpendCombos(s)
 		ns.enterCombat(s)
 
-	elseif s.energy >= ns.e.Envenom * eCostMult and s.comboPoints >= maxComboPtsToSpend then
+	elseif s.energy >= ns.e.Envenom  and s.comboPoints >= maxComboPtsToSpend -1 then
 
 		-- Dump this full load of combo points into an envemom.
 		spell = "Envenom"
-		s.energy = s.energy - ns.e.Envenom * eCostMult
+		s.energy = s.energy - ns.e.Envenom 
 		s.Envenom_Expiration = s.now + s.comboPoints + 1
 		ns.SpendCombos(s)
 		ns.enterCombat(s)
@@ -907,14 +886,14 @@ function ns.GeSpellFromStateAssassination(s)
 	elseif s.comboPoints < maxComboPtsToSpend then
 
 		-- Combo point building...
-		if s.energy >= ns.e.Garrote * eCostMult
+		if s.energy >= ns.e.Garrote 
 			and s.Garrote_Expiration < s.now + 18 / 4 -- Pandemic
 			and s.garroteReadyTime <= s.now then
 
 			-- No garrote bleed active and need combo points.
 			spell = "Garrote"
 			s.comboPoints = max(maxCombos, s.comboPoints + 1)
-			s.energy = s.energy - ns.e.Garrote * eCostMult
+			s.energy = s.energy - ns.e.Garrote 
 			s.Garrote_Expiration =  ns.pandemicExpiration(s, s.Garrote_Expiration, 18)
 			ns.SpendCombos(s)
 			if not stealthy or not ns.hasSubterfugeTalent then
@@ -923,22 +902,22 @@ function ns.GeSpellFromStateAssassination(s)
 			ns.enterCombat(s)
 
 		elseif ns.hasBlindsideTalent 
-			and s.energy >= ns.e.Blindside * eCostMult
+			and s.energy >= ns.e.Blindside 
 			and s.Blindside_Expiration > 0
 			then
 
 			-- No hemorrhage bleed active and you need combo points.
 			spell = "Blindside"
 			s.comboPoints = s.comboPoints + 1
-			s.energy = s.energy - ns.e.Blindside * eCostMult
+			s.energy = s.energy - ns.e.Blindside 
 			ns.enterCombat(s)
 
-		elseif s.energy >= ns.e.Mutilate * eCostMult then
+		elseif s.energy >= ns.e.Mutilate  then
 
 			-- Need to build combo points.
 			spell = "Mutilate"
 			s.comboPoints = s.comboPoints + 2
-			s.energy = s.energy - ns.e.Mutilate * eCostMult
+			s.energy = s.energy - ns.e.Mutilate
 			ns.enterCombat(s)
 
 		end
@@ -989,11 +968,6 @@ function ns.GeSpellFromStateAssassination(s)
 	s.now = max(s.now, oldNow + 0.1) -- Always move forward in time at least a little
 
 	local combatEnergyRegenPerSec = s.combatEnergyRegenPerSec
-	if ns.hasVenomRushTalent then
-		combatEnergyRegenPerSec = combatEnergyRegenPerSec + nBleeds * 10 / 2 -- Damage tick every 2 sec.
-	else
-		combatEnergyRegenPerSec = combatEnergyRegenPerSec + nBleeds * 7 / 2
-	end
 	s.energy = min(ns.maxEnergy, s.energy + combatEnergyRegenPerSec * (s.now - oldNow))
 
 	--return spell, vanishOk, b2, tricksOfTheTradeOk, trinket1OK, kickOk, s.interruptibleName, d2, rText, c2
@@ -1004,33 +978,8 @@ function ns.GeOpenerSpellFromStateAssassination(s)
 	local spell = nil;
 	local oldNow = s.now
 	-- Combo spend poiont for Assassination is one less than max because Mutilate gives 2.
-	local maxComboPtsToSpend = 4
-	local maxCombos = 5
-	local markedForDeathGrant = 5
-
-		
-	if ns.hasDeeperStrategemTalent then
-		maxComboPtsToSpend = 6
-		maxCombos = 6
-		markedForDeathGrant = 5
-	end
-
-	local eCostMult = 1
-	if s.playerIsStealthed and ns.hasShadowFocusTalent then
-		
-		eCostMult = 0.25
-	end
-
+	
 	local stealthy = s.playerIsStealthed or s.Subterfuge_Expiration > s.now
-		
-	local nBleeds = 0
-	if s.Rupture_Expiration > s.now + 1 then
-		nBleeds = nBleeds + 1
-	end
-	if s.Garrote_Expiration > s.now + 1 then
-		nBleeds = nBleeds + 1
-	end
-
 	local vanishOk = s.vanishReadyTime <= s.now and s.isInGroup
 	
 	if s.globalCoolDownExpiration > s.now then
@@ -1038,155 +987,90 @@ function ns.GeOpenerSpellFromStateAssassination(s)
 	else
 		if s.playerIsStealthed and not s.inCombat then
 			spell = "Garrote"
-			s.comboPoints = max(maxCombos, s.comboPoints + 1)
-			s.energy = s.energy - ns.e.Garrote * eCostMult
-			s.Garrote_Expiration =  ns.pandemicExpiration(s, s.Garrote_Expiration, 18)
-			ns.SpendCombos(s)
-			if not stealthy or not ns.hasSubterfugeTalent then
-				s.garroteReadyTime = s.now + 15
-			end
-			ns.enterCombat(s)
 			ns.open.nextMove = "Garrote1"
 		elseif ns.open.nextMove == "Garrote1" and ns.lastSpell == "Garrote" then
 			ns.open.nextMove = "Mutilate1"
 			spell = "Mutilate"
-			s.comboPoints = s.comboPoints + 2
-			s.energy = s.energy - ns.e.Mutilate * eCostMult	
-			ns.enterCombat(s)
 		elseif ns.open.nextMove == "Garrote1" and ns.lastSpell ~= "Garrote" and ns.lastSpell ~= "" then
 			ns.open.active = 0
-			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(1)")
 			s = ns.GetState(GetTime())
-			ns.enterCombat(s)
+			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(1)")
 		elseif ns.open.nextMove == "Garrote1" and ns.lastSpell == "" then
 			spell = "Garrote"
-			ns.enterCombat(s)
 			ns.open.nextMove = "Garrote1"
 		elseif ns.open.nextMove == "Mutilate1" and ns.lastSpell == "Mutilate" then
 			ns.open.nextMove = "Rupture"
 			spell = "Rupture"
-			local comboSpend = ns.SpendCombos(s)
-			s.Rupture_Expiration = ns.pandemicExpiration(s, s.Rupture_Expiration, (comboSpend + 1) * 4)
-			s.energy = s.energy - ns.e.Rupture * eCostMult
-			ns.enterCombat(s)
 		elseif ns.open.nextMove == "Mutilate1" and ns.lastSpell ~= "Garrote" then
 			ns.open.active = 0
-			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(2)")
 			s = ns.GetState(GetTime())
-			ns.enterCombat(s)
+			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(2)")
 		elseif ns.open.nextMove == "Mutilate1" then
 			spell = "Mutilate"
 		elseif ns.open.nextMove == "Rupture" and ns.lastSpell == "Rupture" then
 			if s.vendettaReadyTime <= s.now then
 				ns.open.nextMove = "Vendetta"
 				spell = "Vendetta"
-				ns.enterCombat(s)
 			elseif s.ToxicBlade_ReadyTime <= s.now then
 				ns.open.nextMove = "Toxic Blade"
 				spell = "Toxic_Blade"
-				s.energy = s.energy - ns.e.Toxic_Blade * eCostMult
-				s.ToxicBlade_ReadyTime = s.now + 25
-				s.comboPoints = min(maxCombos, s.comboPoints + 1)
-				ns.enterCombat(s)
-			--elseif ns.knowsKingsbane and s.Kingsbane_ReadyTime <= s.now then
-			--	ns.open.nextMove = "Kingsbane"
-			--	spell = "Kingsbane"
-			--	s.energy = s.energy - ns.e.Kingsbane * eCostMult
-			--	s.Kingsbane_ReadyTime = s.now + 45
-			--	s.comboPoints = min(maxCombos, s.comboPoints + 1)
-			--	ns.enterCombat(s)
 			elseif vanishOk then
 				ns.open.nextMove = "Vanish"
 				spell = "Vanish"
 				s.vanishReadyTime = s.now + 120
-			elseif s.energy >= ns.e.Envenom * eCostMult and s.comboPoints > 0 then
+			elseif s.energy >= ns.e.Envenom and s.comboPoints > 0 then
 				ns.open.nextMove = "Envenom"
 				spell = "Envenom"
-				s.energy = s.energy - ns.e.Envenom * eCostMult
-				s.Envenom_Expiration = s.now + s.comboPoints + 1
-				ns.SpendCombos(s)
-				ns.enterCombat(s)
 			else
 				ns.open.nextMove = "Mutilate2"
 				spell = "Mutilate"
-				s.comboPoints = s.comboPoints + 2
-				s.energy = s.energy 
 			end
 		elseif ns.open.nextMove == "Rupture" and ns.lastSpell ~= "Mutilate" then
 			ns.open.active = 0
-			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(3)")
 			s = ns.GetState(GetTime())
-			ns.enterCombat(s)
+			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(3)")
 		elseif ns.open.nextMove == "Rupture" then
 			spell = "Rupture"
 		elseif ns.open.nextMove	 == "Vendetta" and ns.lastSpell == "Vendetta" then
 			if s.ToxicBlade_ReadyTime <= s.now then
 				ns.open.nextMove = "Toxic Blade"
 				spell = "Toxic_Blade"
-				s.energy = s.energy - ns.e.Toxic_Blade * eCostMult
-				s.ToxicBlade_ReadyTime = s.now + 25
-				s.comboPoints = min(maxCombos, s.comboPoints + 1)
-				ns.enterCombat(s)
 			elseif ns.knowsKingsbane and s.Kingsbane_ReadyTime <= s.now then
 				ns.open.nextMove = "Kingsbane"
 				spell = "Kingsbane"
-				s.energy = s.energy - ns.e.Kingsbane * eCostMult
-				s.Kingsbane_ReadyTime = s.now + 45
-				s.comboPoints = min(maxCombos, s.comboPoints + 1)
-				ns.enterCombat(s)
 			elseif vanishOk then
 				ns.open.nextMove = "Vanish"
 				spell = "Vanish"
 				s.vanishReadyTime = s.now + 120
-			elseif s.energy >= ns.e.Envenom * eCostMult and s.comboPoints > 0 then
+			elseif s.energy >= ns.e.Envenom and s.comboPoints > 0 then
 				ns.open.nextMove = "Envenom"
 				spell = "Envenom"
-				s.energy = s.energy - ns.e.Envenom * eCostMult
-				s.Envenom_Expiration = s.now + s.comboPoints + 1
-				ns.SpendCombos(s)
-				ns.enterCombat(s)
 			else
 				ns.open.nextMove = "Mutilate2"
 				spell = "Mutilate"
-				s.comboPoints = s.comboPoints + 2
-				s.energy = s.energy 
 			end
 		elseif ns.open.nextMove == "Vendetta" and ns.lastSpell ~= "Rupture" then
 			ns.open.active = 0
-			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(4)")
 			s = ns.GetState(GetTime())
-			ns.enterCombat(s)
+			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(4)")
 		elseif ns.open.nextMove == "Vendetta" then
 			spell = "Vendetta"
 		elseif ns.open.nextMove == "Toxic Blade" and ns.lastSpell == "Toxic Blade" then
-			--if ns.knowsKingsbane and s.Kingsbane_ReadyTime <= s.now then
-			--	ns.open.nextMove = "Kingsbane"
-			--	spell = "Kingsbane"
-			--	s.energy = s.energy - ns.e.Kingsbane * eCostMult
-			--	s.Kingsbane_ReadyTime = s.now + 45
-			--	s.comboPoints = min(maxCombos, s.comboPoints + 1)
-			--	ns.enterCombat(s)
 			if vanishOk then
 				ns.open.nextMove = "Vanish"
 				spell = "Vanish"
 				s.vanishReadyTime = s.now + 120
-			elseif s.energy >= ns.e.Envenom * eCostMult and s.comboPoints > 0 then
+			elseif s.energy >= ns.e.Envenom and s.comboPoints > 0 then
 				ns.open.nextMove = "Envenom1"
 				spell = "Envenom"
-				s.energy = s.energy - ns.e.Envenom * eCostMult
-				s.Envenom_Expiration = s.now + s.comboPoints + 1
-				ns.SpendCombos(s)
-				ns.enterCombat(s)
 			else
 				ns.open.nextMove = "Mutilate2"
 				spell = "Mutilate"
-				s.comboPoints = s.comboPoints + 2
-				s.energy = s.energy 
 			end
 		elseif ns.open.nextMove == "Toxic Blade" and ns.lastSpell ~= "Vendetta" and ns.lastSpell ~= "Rupture" then
 			ns.open.active = 0
-			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(5)")
 			s = ns.GetState(GetTime())
+			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(5)")
 			ns.enterCombat(s)
 		elseif ns.open.nextMove == "Toxic Blade" then
 			spell = "Toxic_Blade"
@@ -1195,97 +1079,68 @@ function ns.GeOpenerSpellFromStateAssassination(s)
 				ns.open.nextMove = "Vanish"
 				spell = "Vanish"
 				s.vanishReadyTime = s.now + 120
-			elseif s.energy >= ns.e.Envenom * eCostMult and s.comboPoints > 0 then
+			elseif s.energy >= ns.e.Envenom and s.comboPoints > 0 then
 				ns.open.nextMove = "Envenom1"
 				spell = "Envenom"
-				s.energy = s.energy - ns.e.Envenom * eCostMult
-				s.Envenom_Expiration = s.now + s.comboPoints + 1
-				ns.SpendCombos(s)
-				ns.enterCombat(s)
 			else
 				ns.open.nextMove = "Mutilate2"
 				spell = "Mutilate"
-				s.comboPoints = s.comboPoints + 2
-				s.energy = s.energy - ns.e.Mutilate * eCostMult	
-				ns.enterCombat(s)
 			end
 		elseif ns.open.nextMove == "Kingsbane" and ns.lastSpell ~= "Toxic Blade" and ns.lastSpell	 ~= "Vendetta" and ns.lastSpell ~= "Rupture" then
 			ns.open.active = 0
-			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(6)")
 			s = ns.GetState(GetTime())
-			ns.enterCombat(s)
+			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(6)")
 		elseif ns.open.nextMove == "Kingsbane" then
 			spell = "Kingsbane"
 		elseif ns.open.nextMove == "Vanish" and ns.lastSpell == "Vanish" then
-			if  s.energy >= ns.e.Envenom * eCostMult and s.comboPoints > 0 then
+			if  s.energy >= ns.e.Envenom  and s.comboPoints > 0 then
 				ns.open.nextMove = "Envenom1"
 				spell = "Envenom"
-				s.energy = s.energy - ns.e.Envenom * eCostMult
-				s.Envenom_Expiration = s.now + s.comboPoints + 1
-				ns.SpendCombos(s)
-				ns.enterCombat(s)
 			else
 				ns.open.nextMove = "Mutilate2"
 				spell = "Mutilate"
-				s.comboPoints = s.comboPoints + 2
-				s.energy = s.energy - ns.e.Mutilate * eCostMult	
-				ns.enterCombat(s)
 			end
 		elseif ns.open.nextMove == "Vanish" and ns.lastSpell ~= "Kingsbane" and ns.lastSpell ~= "Toxic Blade" and ns.lastSpell ~= "Vendetta" and ns.lastSpell ~= "Rupture" then
 			ns.open.active = 0
-			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(7)")
 			s = ns.GetState(GetTime())
-			ns.enterCombat(s)
+			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(7)")
 		elseif ns.open.nextMove == "Vanish" then
 			spell = "Vanish"
 		elseif ns.open.nextMove == "Envenom1" and ns.lastSpell == "Envenom" then
 			ns.open.nextMove = "Mutilate2"
 			spell = "Mutilate"
-			s.comboPoints = s.comboPoints + 2
-			s.energy = s.energy - ns.e.Mutilate * eCostMult	
-			ns.enterCombat(s)
 		elseif ns.open.nextMove == "Envenom1" and ns.lastSpell ~= "Vanish" and ns.lastSpell ~= "Kingsbane" and ns.lastSpell ~= "Toxic Blade" and ns.lastSpell ~= "Vendetta" and ns.lastSpell ~= "Rupture" then
 			ns.open.active = 0
-			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(8)")
 			s = ns.GetState(GetTime())
-			ns.enterCombat(s)
+			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(8)")
 		elseif ns.open.nextMove == "Envenom1" then
 			spell = "Envenom"
 		elseif ns.open.nextMove == "Mutilate2" and ns.lastSpell == "Mutilate" then
 			ns.open.nextMove = "Envenom2"
 			spell = "Envenom"
-			s.energy = s.energy - ns.e.Envenom * eCostMult
-			s.Envenom_Expiration = s.now + s.comboPoints + 1
-			ns.SpendCombos(s)
-			ns.enterCombat(s)
 		elseif ns.open.nextMove == "Mutilate2" and ns.lastSpell ~= "Envenom" then
 			ns.open.active = 0
-			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(9)")
 			s = ns.GetState(GetTime())
-			ns.enterCombat(s)
+			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(9)")
 		elseif ns.open.nextMove == "Mutilate2" then
 			spell = "Mutilate"
 		elseif ns.open.nextMove == "Garrote2" and ns.lastSpell == "Garrote" then
 			ns.open.active = 0
-			--ns.leftText:SetText("|cffFFffFF".."Opener complete: Normal Rotation(11)")
 			s = ns.GetState(GetTime())
-			ns.enterCombat(s)
+			--ns.leftText:SetText("|cffFFffFF".."Opener complete: Normal Rotation(11)")
 		elseif ns.open.nextMove == "Garrote2" and ns.lastSpell ~= "Envenom" then
 			ns.open.active = 0
-			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(10)")
 			s = ns.GetState(GetTime())
-			ns.enterCombat(s)
+			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(10)")
 		elseif ns.open.nextMove == "Garrote2" then
 			spell = "Garrote"
 		elseif ns.open.nextMove == "Envenom2" and ns.lastSpell == "Envenom" then
 			spell = "Garrote"
-			ns.enterCombat(s)
 			ns.open.nextMove = "Garrote2"
 		elseif ns.open.nextMove == "Envenom2" and ns.lastSpell ~= "Mutilate" then
-			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(12)")
-			s = ns.GetState(GetTime())
-			ns.enterCombat(s)
 			ns.open.active = 0
+			s = ns.GetState(GetTime())
+			--ns.leftText:SetText("|cffFFffFF".."Opener abort: Normal Rotation(12)")
 		elseif ns.open.nextMove == "Envenom2" then
 			spell = "Envenom"
 		end
@@ -1334,11 +1189,7 @@ function ns.GeOpenerSpellFromStateAssassination(s)
 	s.now = max(s.now, oldNow + 0.1) -- Always move forward in time at least a little
 
 	local combatEnergyRegenPerSec = s.combatEnergyRegenPerSec
-	if ns.hasVenomRushTalent then
-		combatEnergyRegenPerSec = combatEnergyRegenPerSec + nBleeds * 10 / 2 -- Damage tick every 2 sec.
-	else
-		combatEnergyRegenPerSec = combatEnergyRegenPerSec + nBleeds * 7 / 2
-	end
+
 	s.energy = min(ns.maxEnergy, s.energy + combatEnergyRegenPerSec * (s.now - oldNow))
 
 	return spell, vanishOk, b2, tricksOfTheTradeOk,  kickOk, s.interruptibleName, d2, rText, c2
@@ -2187,7 +2038,9 @@ function ns.DecideSpells()
 		end
 		ns.textureRecommend:SetTexture(GetSpellTexture(ns.n[spell]))
 		if nextSpell ~= nil then
-			ns.textureC1:SetTexture(GetSpellTexture(ns.n[nextSpell]))
+			showSpell = gsub(ns.n[nextSpell],"1","")
+			showSpell  = gsub(showSpell,"2","")
+			ns.textureC1:SetTexture(GetSpellTexture(showSpell))
 		else
 			ns.textureC1:SetTexture(nil)
 		end
@@ -2225,7 +2078,9 @@ function ns.DecideSpells()
 			end
 			ns.textureRecommend:SetTexture(GetSpellTexture(ns.n[nextSpell]))
 			if nextNextSpell ~= nil and ns.open.active == 0 then
-				ns.textureC1:SetTexture(GetSpellTexture(ns.n[nextNextSpell]))
+				showSpell = gsub(ns.n[nextNextSpell],"1","")
+				showSpell  = gsub(showSpell,"2","")
+				ns.textureC1:SetTexture(GetSpellTexture(showSpell))
 			else
 				ns.textureC1:SetTexture(nil)
 			end
