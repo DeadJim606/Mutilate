@@ -2038,7 +2038,9 @@ function ns.DecideSpells()
 		end
 		ns.textureRecommend:SetTexture(GetSpellTexture(ns.n[spell]))
 		if nextSpell ~= nil then
-			ns.textureC1:SetTexture(GetSpellTexture(ns.n[nextSpell]))
+			showSpell = gsub(ns.n[nextSpell],"1","")
+			showSpell  = gsub(showSpell,"2","")
+			ns.textureC1:SetTexture(GetSpellTexture(showSpell))
 		else
 			ns.textureC1:SetTexture(nil)
 		end
@@ -2076,7 +2078,9 @@ function ns.DecideSpells()
 			end
 			ns.textureRecommend:SetTexture(GetSpellTexture(ns.n[nextSpell]))
 			if nextNextSpell ~= nil and ns.open.active == 0 then
-				ns.textureC1:SetTexture(GetSpellTexture(ns.n[nextNextSpell]))
+				showSpell = gsub(ns.n[nextNextSpell],"1","")
+				showSpell  = gsub(showSpell,"2","")
+				ns.textureC1:SetTexture(GetSpellTexture(showSpell))
 			else
 				ns.textureC1:SetTexture(nil)
 			end
