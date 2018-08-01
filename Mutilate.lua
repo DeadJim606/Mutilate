@@ -64,7 +64,7 @@ ns.id.Goremaws_Bite = 209782
 ns.id.Toxic_Blade = 245388
 
 ns.open = {}
-ns.open.active = 1
+ns.open.active = 0
 ns.open.waiting = 1
 ns.open.nextMove = ""
 ns.opener = {}
